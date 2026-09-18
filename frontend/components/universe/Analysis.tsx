@@ -93,7 +93,7 @@ export default function Analysis({
         </div>
         <button
           className="circle-button"
-          aria-label="Explore result in universe"
+          aria-label="Explore result in architecture"
           onClick={onExplore}
         >
           <ArrowUpRight size={21} />

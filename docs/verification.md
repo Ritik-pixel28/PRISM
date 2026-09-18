@@ -2,6 +2,20 @@
 
 Verified on September 18, 2026.
 
+## Reference-driven studio redesign
+
+- Added procedural Three.js sphere and fracture scenes, with metallic materials, bloom lighting, disassembly, rotation and zoom.
+- Inspected both visual treatments at 1440×960.
+- Split the product into Experience, Simulator, Architecture, Analysis, Archive and Settings.
+- Browser verification: 10× traffic produces five added units and a $500 delta; proposed topology displays 750 req/s of added capacity; targeting RDS produces four upstream dependencies and 100% potential impact.
+- Verified saved $380 budget output and side-by-side comparison against the traffic run, including retained capacity of 150 req/s.
+- Verified the full decision record displays architecture, assumptions and calculations.
+- Checked mobile navigation availability and archive search at 390 pixels, with no horizontal document overflow in the archive.
+- Final ESLint, TypeScript production build, eight backend tests and four history tests pass.
+- The visuals recreate the references' style using original procedural geometry; they are not the source videos' original assets. Existing export-download and AWS verification limitations below remain.
+
+The sections below record earlier implementation checks; the studio replaces the prior floating-panel universe interface.
+
 - Python unittest suite: 8 tests pass, including 1×/10×/20× traffic, one-node sample compatibility, zero compute, heterogeneous capacities, failures, budget feasibility, malformed requests and cyclic graphs.
 - ESLint: pass.
 - Next.js production build with webpack: pass, including TypeScript checks.

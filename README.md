@@ -1,4 +1,4 @@
-# PRISM — Infrastructure Universe
+# PRISM — Simulation Studio
 
 See how your infrastructure behaves before production does.
 
@@ -31,13 +31,13 @@ Open http://localhost:3000. No AWS credentials, paid services or Python dependen
 - Monthly budget constraints with retained capacity and infeasible-budget detection.
 - Editable capacity, baseline traffic and cost assumptions.
 - Current/proposed compute topology, deterministic calculations and cost comparison.
-- Separate Universe, Experiment Lab, Analysis, Archive and Model Settings views.
-- Draggable orbital services and floating panels, animated dependency streams, starfield, pan and zoom.
+- Separate Experience, Simulator, Architecture, Analysis, Archive and Model Settings views.
+- Three.js sphere and fracture sculptures with rotation, zoom, disassembly, reset and fullscreen.
 - Persistent browser archive for the most recent 30 experiments, scenario search, filters and two-run comparison.
 - Readable, copyable and downloadable Markdown decision records.
 - Validated Lambda handler, same-origin frontend proxy, local Python HTTP server.
 - Optional Bedrock explanation with bounded timeouts and deterministic fallback.
-- Responsive space interface, pause/resume motion, keyboard focus styles and reduced-motion support.
+- Responsive cinematic interface, pause/resume motion, keyboard focus styles and reduced-motion support.
 
 ## Verify
 
@@ -75,20 +75,22 @@ No model access, live AWS invocation, SAM deployment or cloud endpoint has been 
 - `backend/bedrock/client.py`: optional explanation layer.
 - `backend/server.py`: local adapter for the same handler.
 - `frontend/app/page.tsx`: experiment workspace.
-- `frontend/components/universe/`: orbital topology, floating controls, analysis and archive.
+- `frontend/components/studio/Sculpture.tsx`: procedural WebGL sculptures and lighting.
+- `frontend/components/ArchitectureCanvas/`: draggable dependency graph.
+- `frontend/components/universe/`: shared simulator controls, analysis and archive.
 - `frontend/lib/history.ts`: validation for restored experiment records.
 - `frontend/app/api/simulate/route.ts`: server-side API proxy.
 - `docs/demo.md`: three-minute presentation plan.
 
 ## Credits
 
-Built with Next.js, React, React Flow, Lucide, Tailwind CSS and Python. AI-assisted implementation: OpenAI Codex. Review and understand the model and code before presenting it; include AI tool usage in the submission where required.
+Built with Next.js, React, Three.js, React Flow, Lucide, Tailwind CSS and Python. Anton and Manrope fonts are bundled locally. AI-assisted implementation: OpenAI Codex. Review and understand the model and code before presenting it; include AI tool usage in the submission where required.
 
-## Universe controls
+## Studio controls
 
-Use the navigation rail (bottom bar on mobile) to switch views. In Universe, drag services, pan the background, zoom with the mouse wheel or use the scene controls. Drag a floating panel by its title bar on desktop; arrow keys also reposition a focused panel handle. Reset space restores the layout. Mobile uses stacked panels to keep the graph and controls usable.
+Use the top navigation to switch between six views. Experience has two original procedural sculptures inspired by the supplied references: FORM uses metallic and textured spheres; FRACTURE uses a dark core and luminous fragments. Drag to rotate, scroll to zoom, adjust Disassemble or reset the camera. On mobile, the menu opens the other views.
 
-Pause motion from the bottom dock or Model Settings. System reduced-motion preferences take priority. Animation illustrates the model; it is not live AWS traffic. The dedicated Analysis view contains the complete math, and the Archive supports comparing two saved runs.
+Architecture contains the actual service graph: drag nodes, inspect services, trace dependencies and preview proposed compute capacity. Simulator runs traffic, failure and budget scenarios. Analysis contains the complete math and decision record; Archive compares saved runs. Settings exposes all model assumptions. Pause motion from Experience or Settings. System reduced-motion preferences take priority. Animation is illustrative, not AWS telemetry. See [the feature map](docs/feature-map.md).
 
 History validation tests require Node 22.6+ (Node 25 was used here):
 

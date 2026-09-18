@@ -22,6 +22,7 @@ const positions: Record<string, { x: number; y: number }> = {
   "ec2-a": { x: 535, y: 0 },
   "ec2-b": { x: 535, y: 245 },
   rds: { x: 810, y: 120 },
+  proposed: { x: 535, y: 490 },
 };
 
 export default function ArchitectureCanvas({
@@ -69,7 +70,7 @@ export default function ArchitectureCanvas({
         type: "architectureNode",
         width: 190,
         height: 151,
-        position: { x: 535, y: 490 },
+        position: locations.proposed,
         data: {
           id: "proposed",
           label: `+${result.add_nodes} compute units`,
@@ -113,9 +114,7 @@ export default function ArchitectureCanvas({
     setLocations((previous) => ({
       ...previous,
       ...Object.fromEntries(
-        updated
-          .filter((n) => n.id !== "proposed")
-          .map((n) => [n.id, n.position]),
+        updated.map((n) => [n.id, n.position]),
       ),
     }));
   }

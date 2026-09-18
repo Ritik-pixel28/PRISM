@@ -29,8 +29,8 @@ Close: “PRISM makes assumptions visible, failures explorable, and architecture
 ## Before recording
 
 - Start both local servers and confirm the first experiment succeeds.
-- Use a desktop viewport for the universe. Demonstrate dragging a service and a floating panel before opening the Experiment Lab.
-- Reset the workspace and close unrelated panels.
+- Start on Experience. Rotate the sphere cluster, switch to FRACTURE and move Disassemble, then open Simulator. Demonstrate the service graph in Architecture.
+- Reset the 3D view and restore default model assumptions.
 - Record within three minutes, with a backup recording saved locally.
 - Confirm the current event rules directly before submission.
 - Do not claim live monitoring, verified pricing, real fault injection or deployed AWS resources from this local demo.

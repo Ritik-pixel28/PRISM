@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PRISM — Infrastructure Universe",
+  title: "PRISM — Simulation Studio",
   description:
     "See how your infrastructure behaves before production does. A transparent infrastructure simulation and architectural decision lab.",
 };

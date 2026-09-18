@@ -31,3 +31,5 @@ venv/
 # Build / deployment
 dist/
 build/
+
+.aws-sam/

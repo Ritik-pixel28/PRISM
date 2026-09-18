@@ -1,0 +1,79 @@
+{
+  "id": "web-app-001",
+  "name": "Production Web Application",
+  "description": "Sample production web architecture used by PRISM",
+  "region": "us-east-1",
+  "environment": "production",
+  "traffic": {
+    "baseline": 100,
+    "unit": "req/s"
+  },
+  "nodes": [
+    {
+      "id": "cloudfront",
+      "type": "cloudfront",
+      "label": "CloudFront",
+      "category": "edge"
+    },
+    {
+      "id": "alb",
+      "type": "alb",
+      "label": "Application Load Balancer",
+      "category": "load_balancer"
+    },
+    {
+      "id": "ec2-a",
+      "type": "ec2",
+      "label": "EC2-A",
+      "category": "compute",
+      "capacity": 150,
+      "unit": "req/s"
+    },
+    {
+      "id": "ec2-b",
+      "type": "ec2",
+      "label": "EC2-B",
+      "category": "compute",
+      "capacity": 150,
+      "unit": "req/s"
+    },
+    {
+      "id": "rds",
+      "type": "rds",
+      "label": "RDS",
+      "category": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "cloudfront-alb",
+      "source": "cloudfront",
+      "target": "alb",
+      "relationship": "routes"
+    },
+    {
+      "id": "alb-ec2-a",
+      "source": "alb",
+      "target": "ec2-a",
+      "relationship": "routes"
+    },
+    {
+      "id": "alb-ec2-b",
+      "source": "alb",
+      "target": "ec2-b",
+      "relationship": "routes"
+    },
+    {
+      "id": "ec2-a-rds",
+      "source": "ec2-a",
+      "target": "rds",
+      "relationship": "depends_on"
+    },
+    {
+      "id": "ec2-b-rds",
+      "source": "ec2-b",
+      "target": "rds",
+      "relationship": "depends_on"
+    }
+  ]
+}

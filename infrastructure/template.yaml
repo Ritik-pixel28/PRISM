@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: PRISM deterministic simulation API with optional Bedrock explanations
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Default: http://localhost:3000
+  EnableBedrock:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  BedrockModelId:
+    Type: String
+    Default: ''
+  BedrockModelArn:
+    Type: String
+    Default: ''
+Conditions:
+  UseBedrock: !Equals [!Ref EnableBedrock, 'true']
+Resources:
+  SimulateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: functions.simulate.app.lambda_handler
+      Runtime: python3.13
+      Timeout: 20
+      MemorySize: 512
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          PRISM_ENABLE_BEDROCK: !Ref EnableBedrock
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+      Policies:
+        - !If
+          - UseBedrock
+          - Statement:
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Ref BedrockModelArn
+          - !Ref AWS::NoValue
+      Events:
+        Simulate:
+          Type: Api
+          Properties:
+            Path: /simulate
+            Method: post
+        Options:
+          Type: Api
+          Properties:
+            Path: /simulate
+            Method: options
+Outputs:
+  ApiUrl:
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/simulate'

@@ -6,7 +6,7 @@
 
 ## 0:20–1:00 — Traffic surge
 
-Run 1× and show the healthy result. Switch to 10× and run again. Point to 1,000 req/s demand, 300 req/s modeled capacity, and five additional compute units. Open Show the Math. Emphasize that Python calculates the answer; a language model does not invent it.
+Run 1× and show the healthy result. Switch to 10× and run again. Point to 1,000 req/s demand, 300 req/s modeled capacity, and five additional compute units. Open the Analysis view and show the line-by-line proof. Emphasize that Python calculates the answer; a language model does not invent it.
 
 ## 1:00–1:30 — Follow the failure
 
@@ -18,7 +18,7 @@ Choose Budget pressure with $380. Show one retained compute unit, 150 req/s capa
 
 ## 2:00–2:30 — Make it defensible
 
-Open assumptions and change compute capacity. Run traffic again, compare the proposed topology and export an architectural decision record. Show that it contains the architecture, scenario, calculations and limitations.
+Open Model Settings and change compute capacity. Run traffic again, compare the proposed topology and export an architectural decision record. Show that it contains the architecture, scenario, calculations and limitations. Open Archive and compare two runs.
 
 ## 2:30–3:00 — Engineering and learning
 
@@ -29,7 +29,7 @@ Close: “PRISM makes assumptions visible, failures explorable, and architecture
 ## Before recording
 
 - Start both local servers and confirm the first experiment succeeds.
-- Use 1920×1080 for the full three-column workspace; keep the browser zoom readable.
+- Use a desktop viewport for the universe. Demonstrate dragging a service and a floating panel before opening the Experiment Lab.
 - Reset the workspace and close unrelated panels.
 - Record within three minutes, with a backup recording saved locally.
 - Confirm the current event rules directly before submission.

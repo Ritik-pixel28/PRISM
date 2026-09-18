@@ -1,820 +1,839 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Activity,
-  ArrowDownRight,
-  ArrowRight,
-  Box,
+  ArrowUpRight,
   Check,
   ChevronRight,
   CircleHelp,
-  Download,
   FlaskConical,
+  Focus,
   GitBranch,
-  Layers,
-  LoaderCircle,
+  History,
+  Maximize2,
+  Orbit,
+  Pause,
   Play,
-  RotateCcw,
   Settings2,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
-  Terminal,
+  Telescope,
   Triangle,
-  Wallet,
   X,
-  Zap,
 } from "lucide-react";
-import ArchitectureCanvas from "@/components/ArchitectureCanvas/ArchitectureCanvas";
+import UniverseScene from "@/components/universe/UniverseScene";
+import Starfield from "@/components/universe/Starfield";
+import FloatingPanel from "@/components/universe/FloatingPanel";
+import ExperimentControls from "@/components/universe/ExperimentControls";
+import Analysis from "@/components/universe/Analysis";
+import Archive from "@/components/universe/Archive";
 import { architecture } from "@/lib/architecture";
 import { simulate } from "@/lib/api";
-import type {
-  Assumptions,
-  Scenario,
-  SimulationResult,
-} from "@/types/simulation";
+import { defaults, assumptionLabels, type Experiment } from "@/lib/experiments";
+import { readExperiments } from "@/lib/history";
+import type { Assumptions, Scenario } from "@/types/simulation";
 
-const defaults = {
-  baseline_traffic_rps: 100,
-  ec2_capacity_rps: 150,
-  ec2_cost_monthly: 100,
-  rds_cost_monthly: 200,
-  alb_cost_monthly: 50,
-  cloudfront_cost_monthly: 30,
-};
-const labels: Record<string, string> = {
-  baseline_traffic_rps: "Baseline traffic · req/s",
-  ec2_capacity_rps: "Compute capacity · req/s",
-  ec2_cost_monthly: "Compute · $/month",
-  rds_cost_monthly: "Database · $/month",
-  alb_cost_monthly: "Load balancer · $/month",
-  cloudfront_cost_monthly: "CDN · $/month",
-};
-type Run = { result: SimulationResult; scenario: Scenario; time: string };
+const destinations = [
+  { id: "universe", label: "Universe", icon: Orbit, number: "01" },
+  { id: "lab", label: "Experiment lab", icon: FlaskConical, number: "02" },
+  { id: "analysis", label: "Analysis", icon: Activity, number: "03" },
+  { id: "archive", label: "Archive", icon: History, number: "04" },
+  {
+    id: "settings",
+    label: "Model settings",
+    icon: SlidersHorizontal,
+    number: "05",
+  },
+];
+const storageKey = "prism-universe-experiments-v1";
+function subscribeNavigation(listener: () => void) {
+  window.addEventListener("hashchange", listener);
+  return () => window.removeEventListener("hashchange", listener);
+}
+function currentView() {
+  const route = window.location.hash.slice(1);
+  return destinations.some((destination) => destination.id === route)
+    ? route
+    : "universe";
+}
+function subscribeMotion(listener: () => void) {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
 
 export default function Home() {
-  const [mode, setMode] = useState<"traffic" | "failure" | "cost">("traffic");
-  const [multiplier, setMultiplier] = useState(10);
-  const [failed, setFailed] = useState("rds");
-  const [budget, setBudget] = useState(380);
+  const view = useSyncExternalStore(
+    subscribeNavigation,
+    currentView,
+    () => "universe",
+  );
+  const reducedMotion = useSyncExternalStore(
+    subscribeMotion,
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
+  const [scenario, setScenario] = useState<Scenario>({
+    type: "traffic",
+    multiplier: 10,
+  });
   const [assumptions, setAssumptions] = useState<Assumptions>(defaults);
-  const [result, setResult] = useState<SimulationResult | null>(null);
-  const [runs, setRuns] = useState<Run[]>([]);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [active, setActive] = useState<Experiment | null>(null);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [future, setFuture] = useState(false);
-  const [modal, setModal] = useState<"assumptions" | "help" | "history" | null>(
-    null,
-  );
+  const [paused, setPaused] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [math, setMath] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const preview = new Set<string>();
-  if (hovered) {
-    const queue = [hovered];
-    while (queue.length) {
-      const id = queue.pop();
-      architecture.edges
-        .filter((e) => e.target === id)
-        .forEach((e) => {
-          if (!preview.has(e.source)) {
-            preview.add(e.source);
-            queue.push(e.source);
-          }
-        });
+  const [resetKey, setResetKey] = useState(0);
+  const result = active?.result || null;
+  const moving = !paused && !reducedMotion;
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.resolve().then(() => {
+      if (!mounted) return;
+      try {
+        const saved = readExperiments(localStorage.getItem(storageKey));
+        setExperiments(saved);
+        if (saved[0]) {
+          setActive(saved[0]);
+          setDirty(true);
+        }
+      } catch {
+        setNotice(
+          "Browser storage is unavailable. Experiments will remain available for this session.",
+        );
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!guideOpen) return;
+    const original = document.activeElement as HTMLElement | null;
+    const dialog = document.getElementById("field-guide");
+    const close = dialog?.querySelector<HTMLButtonElement>("button");
+    close?.focus();
+    function keys(event: KeyboardEvent) {
+      if (event.key === "Escape") setGuideOpen(false);
+      if (event.key === "Tab") {
+        event.preventDefault();
+        close?.focus();
+      }
     }
-  }
-  const scenario: Scenario =
-    mode === "traffic"
-      ? { type: mode, multiplier }
-      : mode === "failure"
-        ? { type: mode, node_id: failed }
-        : { type: mode, budget };
-  async function run() {
+    document.addEventListener("keydown", keys);
+    return () => {
+      document.removeEventListener("keydown", keys);
+      original?.focus();
+    };
+  }, [guideOpen]);
+
+  async function launch() {
+    if (busy) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const next = await simulate(architecture, scenario, assumptions);
-      setResult(next);
-      setDirty(false);
+      const experiment = {
+        id: crypto.randomUUID(),
+        date: new Date().toISOString(),
+        scenario: { ...scenario },
+        result: next,
+      };
+      const history = [experiment, ...experiments].slice(0, 30);
+      setExperiments(history);
+      setActive(experiment);
       setFuture(false);
-      setRuns((previous) =>
-        [
-          { result: next, scenario, time: new Date().toLocaleTimeString() },
-          ...previous,
-        ].slice(0, 20),
-      );
+      setDirty(false);
+      setSelected(null);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(history));
+      } catch {
+        setNotice(
+          "Simulation complete. Browser storage is full or unavailable; this run is saved for this session only.",
+        );
+      }
+      window.location.hash = "universe";
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to run simulation",
+        cause instanceof Error
+          ? cause.message
+          : "Unable to complete simulation",
       );
     } finally {
       setBusy(false);
     }
   }
-  function exportAdr() {
-    if (!result) return;
-    const latest = runs.find((r) => r.result === result);
-    const text = [
-      `# PRISM architectural decision record`,
-      `Date: ${new Date().toISOString()}`,
-      `Model: ${result.model_version}`,
-      `## Architecture`,
-      JSON.stringify(architecture, null, 2),
-      `## Scenario`,
-      JSON.stringify(latest?.scenario),
-      `## Decision`,
-      result.recommendation,
-      `## Evidence`,
-      ...result.math,
-      `## Assumptions`,
-      JSON.stringify(result.assumptions, null, 2),
-      `## Estimated monthly cost`,
-      `Current: $${result.cost_current}; proposed: $${result.cost_proposed}`,
-      `## Limitations`,
-      ...result.limitations,
-    ].join("\n\n");
-    const url = URL.createObjectURL(
-      new Blob([text], { type: "text/markdown" }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "prism-decision-record.md";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  function changeScenario(next: Scenario) {
+    setScenario(next);
+    setDirty(true);
   }
-  function reset() {
-    setResult(null);
+  function openExperiment(experiment: Experiment) {
+    setActive(experiment);
+    setDirty(true);
     setFuture(false);
-    setSelected(null);
-    setDirty(false);
-    setError("");
-    setMultiplier(10);
-    setMode("traffic");
-    setAssumptions(defaults);
-    setBudget(380);
-    setFailed("rds");
+    window.location.hash = "analysis";
   }
-  const utilization = result ? result.utilization_pct : null;
-  const selectedNode = architecture.nodes.find((node) => node.id === selected);
+  function resetUniverse() {
+    setResetKey((key) => key + 1);
+    setSelected(null);
+    setFuture(false);
+    setControlsOpen(true);
+  }
+  async function fullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      setNotice(
+        "Fullscreen is unavailable in this browser. Open PRISM in a regular browser for an immersive view.",
+      );
+    }
+  }
+  const node =
+    architecture.nodes.find((service) => service.id === selected) ??
+    (selected === "expansion" && result && future
+      ? {
+          id: "expansion",
+          type: "ec2",
+          category: "proposed compute",
+          label: `+${result.add_nodes} compute units`,
+          capacity: result.add_nodes * result.assumptions.ec2_capacity_rps,
+        }
+      : undefined);
+  const status = result?.status.toLowerCase() || "ready";
+  const selectedStatus =
+    node?.id === "expansion"
+      ? "Proposed capacity · not provisioned"
+      : node && result?.down.includes(node.id)
+        ? "Injected failure"
+        : node && result?.degraded.includes(node.id)
+          ? "Potentially degraded"
+          : "Modeled service";
+
   return (
-    <main className="observatory">
-      <header className="topbar">
-        <Link className="brand" href="/">
-          <span className="brand-symbol">
-            <Triangle size={25} />
+    <main
+      className={`cosmos-app ${!moving ? "motion-paused" : ""} ${busy ? "is-computing" : ""}`}
+    >
+      <Starfield moving={moving && view === "universe"} />
+      <div className="nebula nebula-violet" />
+      <div className="nebula nebula-blue" />
+      <header className="cosmos-header">
+        <a
+          href="#universe"
+          className="cosmos-brand"
+          aria-label="PRISM universe"
+        >
+          <span className="brand-prism">
+            <Triangle size={23} strokeWidth={1.5} />
           </span>
-          PRISM
-          <span className="brand-divider" />{" "}
-          <span className="brand-subtitle">RESILIENCE LAB</span>
-        </Link>
-        <div className="top-center">
-          <span className="live-dot" /> LOCAL SANDBOX{" "}
-          <span className="top-separator">/</span> us-east-1
+          PRISM<span className="version-badge">EXPLORER / 01</span>
+        </a>
+        <div className="header-location">
+          <span className="connection-dot" /> LOCAL SIMULATION{" "}
+          <span className="header-slash">/</span>
+          <span>US-EAST-1</span>
         </div>
-        <button className="quiet-button" onClick={() => setModal("help")}>
-          <CircleHelp size={15} /> Field guide <ChevronRight size={13} />
-        </button>
+        <div className="header-actions">
+          <button
+            className="icon-btn"
+            aria-label="Open field guide"
+            onClick={() => setGuideOpen(true)}
+          >
+            <CircleHelp size={17} />
+          </button>
+          <button
+            className="header-profile"
+            onClick={() => {
+              window.location.hash = "archive";
+            }}
+            aria-label="Open saved experiments"
+          >
+            R<span className="profile-dot" />
+          </button>
+        </div>
       </header>
-      <div className="workspace-heading">
-        <div>
-          <div className="eyebrow">WORKSPACE / EXPERIMENT 001</div>
-          <h1>
-            Break it here.<span> Not out there.</span>
-          </h1>
-          <p>
-            Explore the limits of your infrastructure before production does.
-          </p>
+      <nav className="cosmos-rail" aria-label="Workspace navigation">
+        <div className="rail-top">
+          {destinations.map((destination) => (
+            <a
+              href={`#${destination.id}`}
+              key={destination.id}
+              className={view === destination.id ? "active" : ""}
+              aria-label={destination.label}
+              aria-current={view === destination.id ? "page" : undefined}
+              title={destination.label}
+            >
+              <destination.icon size={20} strokeWidth={1.4} />
+              <span>{destination.label}</span>
+            </a>
+          ))}
         </div>
         <button
-          className="outline-button"
-          disabled={!result}
-          onClick={exportAdr}
+          className="rail-help"
+          aria-label="About this simulation"
+          onClick={() => setGuideOpen(true)}
         >
-          <Download size={15} /> Export decision{" "}
-          <span className="keycap">↓</span>
+          <ShieldCheck size={18} />
         </button>
-      </div>
-      <div className="lab-layout">
-        <aside className="control-panel">
-          <div className="panel-label">
-            <FlaskConical size={15} /> EXPERIMENT SETUP <span>01</span>
-          </div>
-          <div className="control-content">
-            <div className="eyebrow">CHOOSE A STRESSOR</div>
-            <div className="scenario-list">
-              {(
-                [
-                  {
-                    id: "traffic",
-                    name: "Traffic surge",
-                    desc: "Find your breaking point",
-                    icon: Zap,
-                  },
-                  {
-                    id: "failure",
-                    name: "Dependency failure",
-                    desc: "Follow the blast radius",
-                    icon: GitBranch,
-                  },
-                  {
-                    id: "cost",
-                    name: "Budget pressure",
-                    desc: "Balance spend and capacity",
-                    icon: Wallet,
-                  },
-                ] as const
-              ).map((item) => (
+        <span className="rail-wordmark">ENGINEER THE UNEXPECTED</span>
+      </nav>
+      <div className="workspace-body">
+        {view === "universe" ? (
+          <section
+            className="universe-workspace"
+            aria-label="Infrastructure universe"
+          >
+            <div className="universe-heading">
+              <div className="eyebrow">
+                <span className="tiny-cross">✦</span> YOUR INFRASTRUCTURE,
+                REIMAGINED
+              </div>
+              <h1>
+                A universe
+                <br />
+                of <span>possibilities.</span>
+              </h1>
+              <p>
+                Move through your architecture.
+                <br />
+                Discover what happens next.
+              </p>
+              <div className="universe-meta">
+                <span>
+                  <i /> 5 CONNECTED SERVICES
+                </span>
+                <span>01 REGION</span>
+              </div>
+            </div>
+            <div className="space-coordinate top-right">
+              <span>WEB APPLICATION</span>
+              <strong>System 001</strong>
+              <small>MODEL SPACE · NOT LIVE AWS</small>
+            </div>
+            <div className="cosmic-orbit orbit-outer" />
+            <div className="cosmic-orbit orbit-inner" />
+            <div className="cosmic-center">
+              <span>✦</span>
+            </div>
+            <div className="universe-scene">
+              <UniverseScene
+                key={resetKey}
+                result={result}
+                future={future}
+                moving={moving}
+                onSelect={setSelected}
+                onHover={setHovered}
+              />
+            </div>
+            <div className="topology-switch">
+              <button
+                className={!future ? "active" : ""}
+                onClick={() => setFuture(false)}
+              >
+                <Orbit size={13} /> Current universe
+              </button>
+              <button
+                disabled={!result || result.scenario !== "traffic"}
+                className={future ? "active" : ""}
+                onClick={() => setFuture(true)}
+              >
+                <Sparkles size={13} /> Proposed{" "}
+                {result?.add_nodes ? <span>+{result.add_nodes}</span> : null}
+              </button>
+            </div>
+            {controlsOpen && (
+              <FloatingPanel
+                key={`controls-${resetKey}`}
+                title="QUICK EXPERIMENT"
+                className="quick-experiment"
+              >
+                <ExperimentControls
+                  compact
+                  scenario={scenario}
+                  onChange={changeScenario}
+                  busy={busy}
+                  onRun={launch}
+                  baseline={assumptions.baseline_traffic_rps}
+                />
+                <a href="#lab" className="panel-link">
+                  Open experiment lab <ArrowUpRight size={12} />
+                </a>
+              </FloatingPanel>
+            )}
+            {node ? (
+              <FloatingPanel
+                key={`${node.id}-${resetKey}`}
+                title="SERVICE INSPECTOR"
+                className="service-inspector"
+              >
                 <button
-                  disabled={busy}
-                  key={item.id}
-                  className={`scenario-button ${mode === item.id ? "active" : ""}`}
-                  onClick={() => {
-                    setMode(item.id);
-                    setDirty(true);
-                  }}
-                >
-                  <item.icon size={18} />
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.desc}</small>
-                  </span>
-                  <span className="radio-dot" />
-                </button>
-              ))}
-            </div>
-            <div className="parameter-section">
-              {mode === "traffic" ? (
-                <>
-                  <div className="parameter-heading">
-                    <span>Traffic multiplier</span>
-                    <Zap size={13} />
-                  </div>
-                  <div className="multiplier">
-                    {multiplier}
-                    <span>×</span>
-                    <small>baseline load</small>
-                  </div>
-                  <input
-                    aria-label="Traffic multiplier"
-                    disabled={busy}
-                    type="range"
-                    min="1"
-                    max="20"
-                    value={multiplier}
-                    onChange={(e) => {
-                      setMultiplier(+e.target.value);
-                      setDirty(true);
-                    }}
-                  />
-                  <div className="range-labels">
-                    <span>1× NORMAL</span>
-                    <span>20× EXTREME</span>
-                  </div>
-                  <div className="preset-row">
-                    {[1, 5, 10, 20].map((n) => (
-                      <button
-                        disabled={busy}
-                        className={multiplier === n ? "chosen" : ""}
-                        key={n}
-                        onClick={() => {
-                          setMultiplier(n);
-                          setDirty(true);
-                        }}
-                      >
-                        {n}×
-                      </button>
-                    ))}
-                  </div>
-                  <div className="demand-note">
-                    <ArrowDownRight size={15} />
-                    <span>
-                      {assumptions.baseline_traffic_rps.toLocaleString()} →{" "}
-                      <b>
-                        {(
-                          assumptions.baseline_traffic_rps * multiplier
-                        ).toLocaleString()}{" "}
-                        req/s
-                      </b>
-                    </span>
-                  </div>
-                </>
-              ) : mode === "failure" ? (
-                <>
-                  <label htmlFor="failure-node">Inject failure into</label>
-                  <select
-                    id="failure-node"
-                    disabled={busy}
-                    value={failed}
-                    onChange={(e) => {
-                      setFailed(e.target.value);
-                      setDirty(true);
-                    }}
-                  >
-                    {architecture.nodes.map((node) => (
-                      <option key={node.id} value={node.id}>
-                        {node.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="muted-copy">
-                    Trace all upstream dependencies. Hover any service to
-                    preview potential impact.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <label htmlFor="budget">Monthly budget assumption</label>
-                  <div className="budget-field">
-                    <span>$</span>
-                    <input
-                      id="budget"
-                      disabled={busy}
-                      type="number"
-                      min="0"
-                      max="1000000"
-                      value={budget}
-                      onChange={(e) => {
-                        setBudget(+e.target.value);
-                        setDirty(true);
-                      }}
-                    />
-                  </div>
-                  <p className="muted-copy">
-                    Retain the highest-capacity compute units within your
-                    modeled budget.
-                  </p>
-                </>
-              )}
-            </div>
-            <button
-              className="assumption-button"
-              onClick={() => setModal("assumptions")}
-            >
-              <Settings2 size={15} />
-              <span>Model assumptions</span>
-              <ChevronRight size={14} />
-            </button>
-            <button className="run-button" onClick={run} disabled={busy}>
-              {busy ? (
-                <LoaderCircle className="spin" size={16} />
-              ) : (
-                <Play size={15} fill="currentColor" />
-              )}
-              {busy ? "Running experiment…" : "Run simulation"}
-              <span>↗</span>
-            </button>
-            <div className="safe-note">
-              <ShieldCheck size={12} /> No production resources touched
-            </div>
-          </div>
-          <div className="control-footer">
-            <span className="tiny-orbit" />
-            <div>
-              Make failure a finding.
-              <br />
-              <span>Not an incident.</span>
-            </div>
-          </div>
-        </aside>
-        <section className="main-stage">
-          <div className="canvas-toolbar">
-            <div>
-              <span className="live-dot" />
-              <strong>Web application</strong>
-              <span className="pill">5 SERVICES</span>
-            </div>
-            <button
-              className="icon-button"
-              title="Reset experiment"
-              aria-label="Reset experiment"
-              onClick={reset}
-              disabled={busy}
-            >
-              <RotateCcw size={15} />
-            </button>
-          </div>
-          <div className="canvas-tabs">
-            <button
-              className={!future ? "active" : ""}
-              onClick={() => setFuture(false)}
-            >
-              <Layers size={13} /> Current architecture
-            </button>
-            <button
-              className={future ? "active" : ""}
-              disabled={!result || result.scenario !== "traffic"}
-              onClick={() => setFuture(true)}
-            >
-              <Sparkles size={13} /> Proposed state{" "}
-              {result?.add_nodes ? <span>+{result.add_nodes}</span> : null}
-            </button>
-          </div>
-          <div className="canvas-area">
-            <div className="canvas-coordinate">
-              TOPOLOGY / {future ? "PROPOSED" : "CURRENT"}
-              <span>REGION: US-EAST-1</span>
-            </div>
-            <ArchitectureCanvas
-              result={result}
-              future={future}
-              preview={[...preview]}
-              onSelect={setSelected}
-              onHover={setHovered}
-            />
-            <div className="canvas-caption">
-              {hovered
-                ? `DEPENDENCY PREVIEW · ${preview.size} potentially affected upstream services`
-                : "DRAG TO EXPLORE · SCROLL TO ZOOM · HOVER TO TRACE IMPACT"}
-            </div>
-            {selectedNode && (
-              <div className="node-inspector">
-                <button
-                  aria-label="Close service details"
-                  className="icon-button"
+                  className="inspector-close icon-btn"
                   onClick={() => setSelected(null)}
+                  aria-label="Close service inspector"
                 >
-                  <X size={13} />
+                  <X size={14} />
                 </button>
-                <div className="eyebrow">SERVICE INSPECTOR</div>
-                <strong>{selectedNode.label}</strong>
+                <span className="eyebrow">
+                  {node.category.replaceAll("_", " ").toUpperCase()} /{" "}
+                  {node.id.toUpperCase()}
+                </span>
+                <h2>{node.label}</h2>
+                <span className={`service-state ${status}`}>
+                  <i />
+                  {selectedStatus}
+                </span>
+                {node.type === "ec2" && (
+                  <div className="inspector-capacity">
+                    <strong>
+                      {node.id === "expansion"
+                        ? node.capacity
+                        : (result?.assumptions.ec2_capacity_rps ??
+                          node.capacity)}
+                    </strong>
+                    <span>modeled req/s</span>
+                  </div>
+                )}
                 <p>
-                  {selectedNode.id} · {selectedNode.category}
+                  {node.type === "rds"
+                    ? "A shared dependency. Trace how a failure could propagate upstream."
+                    : "Drag this service through the universe. Hover to trace its upstream dependencies."}
                 </p>
                 <button
-                  className="text-button"
+                  className="secondary-button"
                   disabled={busy}
                   onClick={() => {
-                    setFailed(selectedNode.id);
-                    setMode("failure");
-                    setDirty(true);
+                    if (node.id === "expansion") {
+                      window.location.hash = "analysis";
+                      return;
+                    }
+                    changeScenario({ type: "failure", node_id: node.id });
+                    setControlsOpen(true);
                     setSelected(null);
                   }}
                 >
-                  Target this service <ArrowRight size={12} />
+                  {node.id === "expansion"
+                    ? "View expansion evidence"
+                    : "Target a failure"}{" "}
+                  <GitBranch size={14} />
                 </button>
-              </div>
-            )}
-          </div>
-          <div className="canvas-legend">
-            <span>
-              <i className="legend-dot green" /> Healthy
-            </span>
-            <span>
-              <i className="legend-dot amber" /> Degraded
-            </span>
-            <span>
-              <i className="legend-dot red" /> Failed / saturated
-            </span>
-            <span className="legend-end">DETERMINISTIC MODEL v1.0</span>
-          </div>
-          <div className="telemetry">
-            <div className="telemetry-heading">
-              <div>
-                <Activity size={14} /> EXPERIMENT TELEMETRY
-              </div>
-              <span>
-                {result ? "SIMULATED SNAPSHOT" : "AWAITING FIRST RUN"}
-              </span>
-            </div>
-            <div className="metric-grid">
-              <div className="metric">
-                <span>Required throughput</span>
-                <strong>
-                  {result?.required_capacity.toLocaleString() ?? "—"}
-                  <small>req/s</small>
-                </strong>
-                <div className="mini-bars" aria-hidden="true">
-                  {Array.from({ length: 20 }, (_, index) => (
-                    <i
-                      key={index}
-                      style={{
-                        height: "65%",
-                        opacity:
-                          result &&
-                          index <
-                            result.required_capacity /
-                              result.assumptions.baseline_traffic_rps
-                            ? 0.9
-                            : 0.15,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="metric-foot">Each segment = 1× baseline</div>
-              </div>
-              <div className="metric">
-                <span>
-                  {result?.scenario === "failure"
-                    ? "Installed capacity · before fault"
-                    : "Modeled capacity"}
-                </span>
-                <strong>
-                  {result?.current_capacity.toLocaleString() ?? "—"}
-                  <small>req/s</small>
-                </strong>
-                <div className="metric-foot">
-                  <span className="live-dot" />
-                  {result
-                    ? `${result.scenario === "cost" ? result.affordable_nodes : result.current_nodes} compute units`
-                    : "Run to calculate"}
-                </div>
-              </div>
-              <div className="metric">
-                <span>
-                  {result?.scenario === "failure"
-                    ? "Utilization · before fault"
-                    : "Capacity utilization"}
-                </span>
-                <strong
-                  className={result?.status === "CRITICAL" ? "danger-text" : ""}
-                >
-                  {result
-                    ? utilization === null
-                      ? "∞"
-                      : `${utilization}%`
-                    : "—"}
-                </strong>
-                <div className="utilization-track">
-                  <i style={{ width: `${Math.min(utilization || 0, 100)}%` }} />
-                </div>
-                <div className="metric-foot">
-                  {result
-                    ? `${result.deficit.toLocaleString()} req/s capacity deficit`
-                    : "Demand ÷ compute capacity"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        <aside className="results-panel">
-          <div className="panel-label">
-            <Activity size={15} /> SIMULATION REPORT <span>02</span>
-          </div>
-          <div className="report-content">
-            <div
-              className={`status-banner ${result?.status.toLowerCase() || "idle"}`}
-            >
-              <span className="status-orb">
-                {result ? (
-                  result.status === "HEALTHY" ? (
-                    <Check size={21} />
-                  ) : (
+              </FloatingPanel>
+            ) : result ? (
+              <FloatingPanel
+                key={`signal-${resetKey}`}
+                title="LATEST SIGNAL"
+                className={`signal-panel ${status}`}
+              >
+                <div className="signal-status">
+                  <span className="signal-orb">
                     <Activity size={21} />
-                  )
-                ) : (
-                  <Box size={21} />
-                )}
-              </span>
-              <div>
-                <small>
-                  {dirty && result
-                    ? "PREVIOUS RUN · INPUTS CHANGED"
-                    : "SYSTEM OUTLOOK"}
-                </small>
-                <strong>
-                  {result
-                    ? result.status === "CRITICAL"
-                      ? "Under pressure"
-                      : result.status === "WARNING"
-                        ? "At risk"
-                        : "Within capacity"
-                    : "Ready to explore"}
-                </strong>
+                  </span>
+                  <div>
+                    <span className="eyebrow">
+                      {dirty ? "PREVIOUS RUN" : "EXPERIMENT COMPLETE"}
+                    </span>
+                    <h2>
+                      {result.status === "CRITICAL"
+                        ? "A limit, discovered."
+                        : result.status === "WARNING"
+                          ? "A system at risk."
+                          : "Room to breathe."}
+                    </h2>
+                  </div>
+                </div>
+                <div className="signal-reading">
+                  <strong>
+                    {result.scenario === "traffic"
+                      ? `+${result.add_nodes}`
+                      : result.scenario === "failure"
+                        ? `${result.impact_pct}%`
+                        : `$${result.cost_proposed}`}
+                  </strong>
+                  <span>
+                    {result.scenario === "traffic"
+                      ? "compute units recommended"
+                      : result.scenario === "failure"
+                        ? "potential service impact"
+                        : "modeled monthly cost"}
+                  </span>
+                </div>
+                <a href="#analysis" className="signal-link">
+                  Explore the full analysis <ArrowUpRight size={15} />
+                </a>
+              </FloatingPanel>
+            ) : (
+              <div className="discovery-note">
+                <span className="note-line" />
+                <Telescope size={19} strokeWidth={1.2} />
+                <p>
+                  Your next discovery
+                  <br />
+                  starts with <strong>“what if?”</strong>
+                </p>
               </div>
-            </div>
-            <p className="report-intro">
-              {result
-                ? result.scenario === "failure"
-                  ? `${result.impact_pct}% of services are within the potential blast radius.`
-                  : result.deficit
-                    ? "Demand exceeds modeled capacity. Explore a more resilient configuration."
-                    : "Your architecture meets this experiment’s modeled demand."
-                : "Every architecture has a limit. Run an experiment to discover yours."}
-            </p>
-            <div className="report-divider" />
-            <div className="eyebrow">
-              {result?.scenario === "failure"
-                ? "POTENTIAL IMPACT"
-                : "RECOMMENDED ACTION"}
-            </div>
-            <div className="recommendation-number">
-              {result
-                ? result.scenario === "traffic"
-                  ? `+${result.add_nodes}`
-                  : result.scenario === "failure"
-                    ? `${result.degraded.length + 1}`
-                    : `${result.affordable_nodes}`
-                : "—"}
-              <span>
-                {result?.scenario === "failure"
-                  ? "services affected"
-                  : result?.scenario === "cost"
-                    ? "compute units retained"
-                    : "compute units"}
-              </span>
-            </div>
-            <p className="muted-copy">
-              {result?.recommendation ||
-                "Evidence-backed recommendations appear after your first simulation."}
-            </p>
-            <div className="cost-card">
-              <div>
-                <span>Current estimate</span>
-                <strong>
-                  {result ? `$${result.cost_current}` : "—"}
-                  <small>/mo</small>
-                </strong>
-              </div>
-              <div>
-                <span>Proposed estimate</span>
-                <strong>
-                  {result ? `$${result.cost_proposed}` : "—"}
-                  <small>/mo</small>
-                </strong>
-              </div>
-              <footer>
-                Modeled cost delta{" "}
-                <span>
-                  {result
-                    ? `${result.cost_delta >= 0 ? "+" : "−"}$${Math.abs(result.cost_delta)}`
-                    : "—"}
-                </span>
-              </footer>
-            </div>
-            <div className="insight">
-              <div>
-                <Sparkles size={14} />
-                <span>
-                  {result?.explanation_source === "bedrock"
-                    ? "AMAZON BEDROCK INSIGHT"
-                    : "MODEL INSIGHT"}
-                </span>
-              </div>
-              <p>
-                {result?.explanation ||
-                  "Deterministic math drives every result. Optional Amazon Bedrock explanations add context when connected."}
-              </p>
-            </div>
-            <button
-              className="math-toggle"
-              disabled={!result}
-              onClick={() => setMath(!math)}
-            >
-              <Terminal size={14} /> Show the math{" "}
-              <span>{math ? "−" : "+"}</span>
-            </button>
-            {math && result && (
-              <ol className="math-lines">
-                {result.math.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ol>
             )}
-          </div>
-        </aside>
+            <div className="space-readout">
+              <span className="tiny-cross">+</span>
+              <span>
+                {hovered
+                  ? `TRACING DEPENDENCIES / ${hovered.toUpperCase()}`
+                  : busy
+                    ? "DETERMINISTIC ENGINE / COMPUTING"
+                    : "DRAG SERVICES · PAN SPACE · SCROLL TO EXPLORE"}
+              </span>
+              <span className="readout-line" />
+            </div>
+            <div className="universe-dock">
+              <span className="dock-caption">SPACE CONTROLS</span>
+              <button
+                aria-label={
+                  moving ? "Pause universe motion" : "Resume universe motion"
+                }
+                onClick={() => setPaused(!paused)}
+                disabled={reducedMotion}
+                title={
+                  reducedMotion
+                    ? "Reduced motion enabled in your system"
+                    : moving
+                      ? "Pause motion"
+                      : "Resume motion"
+                }
+              >
+                {moving ? <Pause size={15} /> : <Play size={15} />}
+                <span>{moving ? "Motion on" : "Motion off"}</span>
+              </button>
+              <span className="dock-separator" />
+              <button
+                aria-pressed={controlsOpen}
+                onClick={() => setControlsOpen(!controlsOpen)}
+              >
+                <Settings2 size={16} />
+                <span>Controls</span>
+              </button>
+              <button onClick={resetUniverse}>
+                <Focus size={16} />
+                <span>Reset space</span>
+              </button>
+              <button onClick={fullscreen} aria-label="Toggle fullscreen">
+                <Maximize2 size={16} />
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section className="destination-page" key={view}>
+            <div className="destination-breadcrumb">
+              <span>WORKSPACE</span>
+              <ChevronRight size={11} />
+              <span>
+                {destinations
+                  .find((item) => item.id === view)
+                  ?.label.toUpperCase()}
+              </span>
+              <span className="breadcrumb-line" />
+              <span>
+                0{destinations.findIndex((item) => item.id === view) + 1}
+              </span>
+            </div>
+            {view === "lab" && (
+              <div className="lab-view">
+                <div className="view-heading">
+                  <div>
+                    <span className="eyebrow">A SAFE PLACE TO ASK WHAT IF</span>
+                    <h1>
+                      Extraordinary systems.
+                      <br />
+                      <span>Extraordinary pressure.</span>
+                    </h1>
+                    <p>
+                      Choose a stressor. Set the intensity. Watch your universe
+                      respond.
+                    </p>
+                  </div>
+                  <div className="lab-symbol">
+                    <FlaskConical size={55} strokeWidth={0.7} />
+                  </div>
+                </div>
+                <div className="lab-body">
+                  <section className="glass-card lab-controls">
+                    <ExperimentControls
+                      scenario={scenario}
+                      onChange={changeScenario}
+                      busy={busy}
+                      onRun={launch}
+                      baseline={assumptions.baseline_traffic_rps}
+                    />
+                  </section>
+                  <aside className="lab-context">
+                    <span className="eyebrow">YOUR TEST ENVIRONMENT</span>
+                    <div className="mini-universe">
+                      <Orbit size={92} strokeWidth={0.6} />
+                      <span className="mini-satellite" />
+                    </div>
+                    <h2>Web application</h2>
+                    <p>
+                      CloudFront → load balancer → two compute instances →
+                      shared database.
+                    </p>
+                    <div className="context-fact">
+                      <span>Baseline traffic</span>
+                      <strong>{assumptions.baseline_traffic_rps} req/s</strong>
+                    </div>
+                    <div className="context-fact">
+                      <span>Compute unit capacity</span>
+                      <strong>{assumptions.ec2_capacity_rps} req/s</strong>
+                    </div>
+                    <a href="#settings" className="text-link">
+                      Adjust model assumptions <ArrowUpRight size={13} />
+                    </a>
+                    <div className="safe-context">
+                      <ShieldCheck size={17} />
+                      <span>
+                        A deterministic simulation.
+                        <br />
+                        Zero production changes.
+                      </span>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            )}
+            {view === "analysis" && (
+              <Analysis
+                experiment={active}
+                onExplore={() => {
+                  window.location.hash = "universe";
+                }}
+              />
+            )}
+            {view === "archive" && (
+              <Archive experiments={experiments} onOpen={openExperiment} />
+            )}
+            {view === "settings" && (
+              <div className="settings-view">
+                <div className="view-heading">
+                  <div>
+                    <span className="eyebrow">THE RULES OF YOUR UNIVERSE</span>
+                    <h1>
+                      Nothing hidden.
+                      <br />
+                      <span>Everything adjustable.</span>
+                    </h1>
+                    <p>
+                      Good simulations start with explicit assumptions. These
+                      are yours.
+                    </p>
+                  </div>
+                  <SlidersHorizontal
+                    size={46}
+                    strokeWidth={0.8}
+                    className="heading-icon"
+                  />
+                </div>
+                <div className="settings-grid">
+                  <section className="glass-card">
+                    <div className="section-heading">
+                      <span className="eyebrow">MODEL ASSUMPTIONS</span>
+                      <button
+                        className="text-link"
+                        disabled={busy}
+                        onClick={() => {
+                          setAssumptions({ ...defaults });
+                          setDirty(true);
+                          setNotice("Default model assumptions restored.");
+                        }}
+                      >
+                        Restore defaults
+                      </button>
+                    </div>
+                    <div className="assumptions-fields">
+                      {Object.entries(assumptionLabels).map(([key, label]) => (
+                        <label key={key}>
+                          {label}
+                          <input
+                            type="number"
+                            min={key.includes("rps") ? 1 : 0}
+                            max="1000000"
+                            value={assumptions[key]}
+                            disabled={busy}
+                            onChange={(event) => {
+                              setAssumptions((previous) => ({
+                                ...previous,
+                                [key]: +event.target.value,
+                              }));
+                              setDirty(true);
+                            }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p className="settings-note">
+                      <Check size={13} /> Changes apply to your next experiment.
+                      Existing results keep their original assumptions.
+                    </p>
+                    <a href="#lab" className="primary-link">
+                      Design an experiment <ArrowUpRight size={15} />
+                    </a>
+                  </section>
+                  <aside>
+                    <section className="glass-card motion-settings">
+                      <span className="eyebrow">THE WAY SPACE FEELS</span>
+                      <div className="toggle-row">
+                        <div>
+                          <h3>Ambient motion</h3>
+                          <p>
+                            Drifting stars, orbiting services, request
+                            particles.
+                          </p>
+                        </div>
+                        <button
+                          className={`toggle ${moving ? "on" : ""}`}
+                          role="switch"
+                          aria-checked={moving}
+                          aria-label="Ambient motion"
+                          disabled={reducedMotion}
+                          onClick={() => setPaused(!paused)}
+                        >
+                          <span />
+                        </button>
+                      </div>
+                      {reducedMotion && (
+                        <p>
+                          Your system’s reduced-motion setting takes priority.
+                        </p>
+                      )}
+                    </section>
+                    <section className="model-note">
+                      <ShieldCheck size={20} />
+                      <h3>Transparent by design.</h3>
+                      <p>
+                        Capacity is compute-only. Failure tracing is
+                        conservative dependency reachability. Automatic
+                        failover, database throughput and scaling delays are not
+                        modeled.
+                      </p>
+                      <p>
+                        Prices are illustrative monthly estimates. PRISM does
+                        not connect to or modify your production account.
+                      </p>
+                      <span className="small-tag">MODEL VERSION 1.0</span>
+                    </section>
+                  </aside>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </div>
-      {error && (
-        <div className="error-banner" role="alert">
-          {error}
-          <button onClick={run}>Retry</button>
+      <footer className="cosmos-footer">
+        <span>
+          <span className={`footer-dot ${busy ? "working" : ""}`} />
+          {busy ? "COMPUTING SIMULATION" : "DETERMINISTIC ENGINE"}
+          <i />
+          {experiments.length} EXPERIMENT{experiments.length === 1 ? "" : "S"}
+        </span>
+        <span>SIMULATION ASSUMPTIONS. NOT AWS GUARANTEES.</span>
+        <button onClick={() => setGuideOpen(true)}>
+          PRISM v1.0 <ArrowUpRight size={11} />
+        </button>
+      </footer>
+      {(error || notice) && (
+        <div
+          className={`toast ${error ? "error" : ""}`}
+          role={error ? "alert" : "status"}
+        >
+          <span>{error || notice}</span>
+          {error && (
+            <button onClick={launch} disabled={busy}>
+              Retry
+            </button>
+          )}
+          <button
+            className="icon-btn"
+            aria-label="Dismiss notification"
+            onClick={() => {
+              setError("");
+              setNotice("");
+            }}
+          >
+            <X size={15} />
+          </button>
         </div>
       )}
-      <footer className="workspace-footer">
-        <span>
-          <ShieldCheck size={13} /> Simulation assumptions. Not AWS guarantees.
-        </span>
-        <button onClick={() => setModal("history")}>
-          <Activity size={13} /> {runs.length} experiments this session{" "}
-          <ChevronRight size={12} />
-        </button>
-        <span className="footer-signature">
-          ENGINEER FOR THE UNEXPECTED <span>↗</span>
-        </span>
-      </footer>
-      {modal && (
-        <div className="modal-backdrop" onClick={() => setModal(null)}>
+      {guideOpen && (
+        <div className="guide-backdrop" onClick={() => setGuideOpen(false)}>
           <section
-            className="modal"
+            id="field-guide"
+            className="guide-dialog glass-card"
             role="dialog"
             aria-modal="true"
-            aria-label={modal}
-            onClick={(e) => e.stopPropagation()}
+            aria-labelledby="guide-title"
+            onClick={(event) => event.stopPropagation()}
           >
             <button
-              className="modal-close icon-button"
-              aria-label="Close dialog"
-              onClick={() => setModal(null)}
+              className="dialog-close icon-btn"
+              aria-label="Close field guide"
+              onClick={() => setGuideOpen(false)}
             >
-              <X size={18} />
+              <X size={19} />
             </button>
-            <div className="eyebrow">PRISM / {modal.toUpperCase()}</div>
-            <h2>
-              {modal === "assumptions"
-                ? "Make the model yours."
-                : modal === "history"
-                  ? "Your experiment log."
-                  : "A safe place to break things."}
+            <span className="eyebrow">WELCOME TO YOUR UNIVERSE</span>
+            <h2 id="guide-title">
+              Explore. Disrupt.
+              <br />
+              <span>Understand.</span>
             </h2>
-            {modal === "assumptions" ? (
-              <>
-                <p>
-                  Illustrative values, never live AWS pricing. Changes apply to
-                  the next run. Compute capacity overrides both existing
-                  instances.
-                </p>
-                <div className="assumption-grid">
-                  {Object.entries(labels).map(([key, label]) => (
-                    <label key={key}>
-                      {label}
-                      <input
-                        disabled={busy}
-                        type="number"
-                        min={key.includes("rps") ? 1 : 0}
-                        max="1000000"
-                        value={assumptions[key]}
-                        onChange={(e) => {
-                          setAssumptions({
-                            ...assumptions,
-                            [key]: +e.target.value,
-                          });
-                          setDirty(true);
-                        }}
-                      />
-                    </label>
-                  ))}
-                </div>
-                <button className="run-button" onClick={() => setModal(null)}>
-                  Use these assumptions <Check size={15} />
-                </button>
-              </>
-            ) : modal === "history" ? (
-              <div className="history-list">
-                {runs.length ? (
-                  runs.map((entry, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        setResult(entry.result);
-                        setDirty(true);
-                        setFuture(false);
-                        setModal(null);
-                      }}
-                    >
-                      <span>
-                        {entry.scenario.type.toUpperCase()}
-                        <small>{entry.time}</small>
-                      </span>
-                      <span>
-                        {entry.result.status}
-                        <ChevronRight size={14} />
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <p>
-                    No experiments yet. Choose a stressor and run your first
-                    simulation.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <>
-                <p>
-                  PRISM is a transparent architectural decision lab. It does not
-                  scan, monitor or modify your AWS account.
-                </p>
-                <ol className="guide-list">
-                  <li>
-                    Choose traffic, dependency failure or budget pressure.
-                  </li>
-                  <li>
-                    Edit assumptions to match the system you want to model.
-                  </li>
-                  <li>
-                    Run the Python engine. Inspect the result and its
-                    calculations.
-                  </li>
-                  <li>
-                    Compare a proposed compute expansion and export your
-                    decision record.
-                  </li>
-                </ol>
-                <p>
-                  Failure tracing is conservative: alternate routes and
-                  automatic failover are not modeled. Capacity is compute-only.
-                  Proposed capacity does not guarantee end-to-end availability.
-                </p>
-                <div className="guide-badge">
-                  <ShieldCheck size={16} /> Local Python engine · AWS Lambda
-                  ready · Bedrock optional
-                </div>
-              </>
-            )}
+            <p>
+              PRISM turns a cloud architecture into a movable, explainable
+              simulation.
+            </p>
+            <ol>
+              <li>
+                <Orbit size={17} />
+                <span>
+                  <strong>Universe</strong>Drag services, pan and zoom space, or
+                  drag floating panels by their title bar. Hover a service to
+                  trace dependencies.
+                </span>
+              </li>
+              <li>
+                <FlaskConical size={17} />
+                <span>
+                  <strong>Experiment lab</strong>Choose a traffic surge,
+                  dependency failure, or budget constraint. Launch the real
+                  Python simulation.
+                </span>
+              </li>
+              <li>
+                <Activity size={17} />
+                <span>
+                  <strong>Analysis</strong>Inspect deterministic calculations
+                  and read, copy or export a decision record.
+                </span>
+              </li>
+              <li>
+                <History size={17} />
+                <span>
+                  <strong>Archive</strong>Reopen saved runs and compare two
+                  decisions. The latest 30 runs stay in this browser.
+                </span>
+              </li>
+            </ol>
+            <p className="guide-caveat">
+              Animation illustrates the model, not live AWS traffic. Pause
+              motion from the space controls. Nothing is deployed or changed in
+              production.
+            </p>
           </section>
         </div>
       )}

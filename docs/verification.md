@@ -17,3 +17,19 @@ Verified on September 18, 2026.
 The ADR export uses a browser download. Its click path was exercised, but the embedded browser did not report a completed download, so saving the file still needs confirmation in a regular browser.
 
 AWS credentials/model access, live Bedrock output, SAM validation and deployment were not tested. SAM CLI is unavailable in the current shell. No resources were deployed.
+
+## Universe redesign
+
+- Replaced the single dashboard with five navigable views: Universe, Experiment Lab, Analysis, Archive and Model Settings.
+- Verified real pointer dragging changes floating-panel positions and service-node coordinates.
+- Verified pause removes animated dependency particles; paused navigation continues to render normally.
+- Verified the proposed topology adds the five-unit compute expansion.
+- Verified RDS failure evidence, $380 budget results, and a 200 req/s assumption producing three added units at 10×.
+- Verified in-app decision-record rendering contains architecture, scenario, assumptions and calculations.
+- Verified archive search, two-run comparison and saved-history restoration after browser refresh.
+- Added four passing history tests covering round trips, malformed records, deduplication, retention limits and missing scenario evidence.
+- Inspected the desktop universe at 1440×1000. Checked all five views at 390 pixels wide; no horizontal overflow.
+- No browser runtime errors in the final responsive checks.
+- Production build and ESLint pass after the redesign.
+
+Universe motion is illustrative, not live AWS telemetry. On mobile, panels stack below the interactive scene instead of supporting free-position dragging. Export-file completion remains subject to the embedded-browser limitation noted above; the new in-app record viewer provides access to the entire document without downloading it.

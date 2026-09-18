@@ -1,4 +1,4 @@
-# PRISM — Resilience Lab
+# PRISM — Infrastructure Universe
 
 See how your infrastructure behaves before production does.
 
@@ -31,10 +31,13 @@ Open http://localhost:3000. No AWS credentials, paid services or Python dependen
 - Monthly budget constraints with retained capacity and infeasible-budget detection.
 - Editable capacity, baseline traffic and cost assumptions.
 - Current/proposed compute topology, deterministic calculations and cost comparison.
-- Session experiment history and downloadable Markdown decision records.
+- Separate Universe, Experiment Lab, Analysis, Archive and Model Settings views.
+- Draggable orbital services and floating panels, animated dependency streams, starfield, pan and zoom.
+- Persistent browser archive for the most recent 30 experiments, scenario search, filters and two-run comparison.
+- Readable, copyable and downloadable Markdown decision records.
 - Validated Lambda handler, same-origin frontend proxy, local Python HTTP server.
 - Optional Bedrock explanation with bounded timeouts and deterministic fallback.
-- Responsive dark interface, keyboard focus styles and reduced-motion support.
+- Responsive space interface, pause/resume motion, keyboard focus styles and reduced-motion support.
 
 ## Verify
 
@@ -55,7 +58,7 @@ Capacity is the sum of compute capacity assumptions; no database, network, cache
 
 Failure impact uses reverse dependency reachability. Degraded means potentially impacted, not proven unavailable. Redundant paths and automatic failover are not modeled. Failing a CDN does not degrade downstream nodes in this dependency model, even though actual request delivery could stop.
 
-Budget simulation preserves non-compute services and retains the highest-capacity existing compute instances it can afford. Costs are illustrative monthly assumptions, not AWS prices. The UI marks reports from earlier inputs as previous runs. History is held in memory and resets on refresh.
+Budget simulation preserves non-compute services and retains the highest-capacity existing compute instances it can afford. Costs are illustrative monthly assumptions, not AWS prices. The UI marks reports from earlier inputs as previous runs. The latest 30 runs are stored in this browser using localStorage. Failed or unavailable storage falls back to session memory. Saved runs retain their scenario, assumptions and evidence.
 
 ## AWS integration, intentionally not deployed
 
@@ -72,10 +75,23 @@ No model access, live AWS invocation, SAM deployment or cloud endpoint has been 
 - `backend/bedrock/client.py`: optional explanation layer.
 - `backend/server.py`: local adapter for the same handler.
 - `frontend/app/page.tsx`: experiment workspace.
-- `frontend/components/ArchitectureCanvas/`: interactive topology.
+- `frontend/components/universe/`: orbital topology, floating controls, analysis and archive.
+- `frontend/lib/history.ts`: validation for restored experiment records.
 - `frontend/app/api/simulate/route.ts`: server-side API proxy.
 - `docs/demo.md`: three-minute presentation plan.
 
 ## Credits
 
 Built with Next.js, React, React Flow, Lucide, Tailwind CSS and Python. AI-assisted implementation: OpenAI Codex. Review and understand the model and code before presenting it; include AI tool usage in the submission where required.
+
+## Universe controls
+
+Use the navigation rail (bottom bar on mobile) to switch views. In Universe, drag services, pan the background, zoom with the mouse wheel or use the scene controls. Drag a floating panel by its title bar on desktop; arrow keys also reposition a focused panel handle. Reset space restores the layout. Mobile uses stacked panels to keep the graph and controls usable.
+
+Pause motion from the bottom dock or Model Settings. System reduced-motion preferences take priority. Animation illustrates the model; it is not live AWS traffic. The dedicated Analysis view contains the complete math, and the Archive supports comparing two saved runs.
+
+History validation tests require Node 22.6+ (Node 25 was used here):
+
+```sh
+node --experimental-strip-types --test frontend/tests/history.test.mjs
+```

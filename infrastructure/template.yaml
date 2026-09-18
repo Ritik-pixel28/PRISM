@@ -14,10 +14,30 @@ Parameters:
     Default: ''
   BedrockModelArn:
     Type: String
-    Default: ''
+    Default: 'arn:aws:bedrock:us-east-1::foundation-model/not-configured'
+    AllowedPattern: '^arn:aws[a-z-]*:bedrock:[a-z0-9-]+:[0-9]*:.+$'
+Rules:
+  BedrockNeedsConfiguration:
+    RuleCondition: !Equals [!Ref EnableBedrock, 'true']
+    Assertions:
+      - Assert: !Not [!Equals [!Ref BedrockModelId, '']]
+        AssertDescription: Set an accessible Bedrock model ID before enabling explanations.
+      - Assert: !Not [!Equals [!Ref BedrockModelArn, 'arn:aws:bedrock:us-east-1::foundation-model/not-configured']]
+        AssertDescription: Set the matching model ARN before enabling explanations.
 Conditions:
   UseBedrock: !Equals [!Ref EnableBedrock, 'true']
 Resources:
+  SimulationApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      EndpointConfiguration: REGIONAL
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 10
+          ThrottlingRateLimit: 5
+          MetricsEnabled: true
   SimulateFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -43,13 +63,108 @@ Resources:
         Simulate:
           Type: Api
           Properties:
+            RestApiId: !Ref SimulationApi
             Path: /simulate
             Method: post
         Options:
           Type: Api
           Properties:
+            RestApiId: !Ref SimulationApi
             Path: /simulate
             Method: options
+        WebsiteSimulate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SimulationApi
+            Path: /api/simulate
+            Method: post
+  SimulationLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${SimulateFunction}'
+      RetentionInDays: 7
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  WebsiteAccess:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-website'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  Website:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: WebsiteFiles
+            DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            OriginAccessControlId: !Ref WebsiteAccess
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - Id: Simulation
+            DomainName: !Sub '${SimulationApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+            OriginPath: /Prod
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: WebsiteFiles
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: Simulation
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: 413f160f-7d7f-4b5a-bc71-149d55d8c1ac
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Website}'
 Outputs:
   ApiUrl:
-    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/simulate'
+    Value: !Sub 'https://${SimulationApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/simulate'
+  WebsiteUrl:
+    Value: !Sub 'https://${Website.DomainName}'
+  WebsiteBucketName:
+    Value: !Ref WebsiteBucket
+  DistributionId:
+    Value: !Ref Website

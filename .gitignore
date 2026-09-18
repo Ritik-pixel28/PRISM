@@ -33,3 +33,4 @@ dist/
 build/
 
 .aws-sam/
+.static-build/

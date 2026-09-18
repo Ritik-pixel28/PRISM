@@ -813,7 +813,7 @@ export default function Home() {
       <footer className="studio-footer">
         <span>
           <i className={busy ? "working" : ""} />
-          {busy ? "COMPUTING EXPERIMENT" : "LOCAL SANDBOX"}
+          {busy ? "COMPUTING EXPERIMENT" : "SIMULATION SANDBOX"}
           <b>/</b>
           {experiments.length} SAVED EXPERIMENTS
         </span>

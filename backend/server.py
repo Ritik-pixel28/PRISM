@@ -7,7 +7,7 @@ class Handler(BaseHTTPRequestHandler):
         self.respond({"httpMethod": "OPTIONS"})
 
     def do_POST(self):
-        if self.path != "/simulate":
+        if self.path not in {"/simulate", "/api/simulate"}:
             self.send_error(404)
             return
         try:

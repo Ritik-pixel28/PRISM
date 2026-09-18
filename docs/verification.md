@@ -2,6 +2,19 @@
 
 Verified on September 18, 2026.
 
+## September 19 readiness audit
+
+- Rechecked official First Commit tracks, schedule and rules; deployment and mentor guidance are in the new runbooks.
+- Installed SAM CLI 1.166.2 in `/tmp/prism-readiness-venv` for this audit. `sam validate --lint` passes on the expanded S3/CloudFront/API Gateway/Lambda template.
+- `sam build --use-container` could not proceed: no running Docker or Finch runtime is available. Lambda container execution remains unverified.
+- `npm --prefix frontend run build:static` passes, including TypeScript. The exported bundle is approximately 2.1 MB on disk.
+- ESLint and all 12 existing engine/history tests pass.
+- New reusable HTTP smoke check passes for the static preview: page load, five scenarios and malformed JSON handling.
+- Browser verification of the actual static export confirms launching 10× traffic opens Analysis with five added units, a $500 modeled delta and line-by-line calculations.
+- No AWS account access, cloud deployment or Bedrock invocation was performed. The static preview executes the same Python handler locally and is not evidence of Lambda hosting.
+
+Earlier checks below are retained as historical records; the current SAM availability and deployment plan supersede their setup notes.
+
 ## Reference-driven studio redesign
 
 - Added procedural Three.js sphere and fracture scenes, with metallic materials, bloom lighting, disassembly, rotation and zoom.

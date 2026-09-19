@@ -40,6 +40,8 @@ Resources:
           MetricsEnabled: true
   SimulateFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       CodeUri: ../backend/
       Handler: functions.simulate.app.lambda_handler

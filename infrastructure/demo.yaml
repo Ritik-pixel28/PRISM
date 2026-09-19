@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: PRISM HTTPS demo served by API Gateway and Lambda
+Resources:
+  DemoApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 60
+        ThrottlingRateLimit: 30
+      RouteSettings:
+        'POST /api/simulate':
+          ThrottlingBurstLimit: 10
+          ThrottlingRateLimit: 5
+  WebFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ../backend/
+      Handler: functions.web.app.lambda_handler
+      Runtime: python3.13
+      Timeout: 20
+      MemorySize: 512
+      Environment:
+        Variables:
+          PRISM_ENABLE_BEDROCK: 'false'
+      Events:
+        Website:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DemoApi
+            PayloadFormatVersion: '2.0'
+        Simulation:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DemoApi
+            Path: /api/simulate
+            Method: POST
+            PayloadFormatVersion: '2.0'
+  DemoLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${WebFunction}'
+      RetentionInDays: 7
+Outputs:
+  WebsiteUrl:
+    Value: !Sub 'https://${DemoApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+  FunctionName:
+    Value: !Ref WebFunction
+  LogGroupName:
+    Value: !Ref DemoLogs

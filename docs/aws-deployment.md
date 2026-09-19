@@ -28,10 +28,10 @@ npm --prefix frontend run build:static
 python3 -m unittest discover -s backend -p 'test_*.py'
 node --experimental-strip-types --test frontend/tests/history.test.mjs
 sam validate --lint --template-file infrastructure/template.yaml
-sam build --use-container --template-file infrastructure/template.yaml
+sam build --template-file infrastructure/template.yaml --region ap-south-1
 ```
 
-Use Node 22.6+ for the history tests. SAM's container build requires Docker running; the Lambda runtime is Python 3.13. The local development machine currently has Python 3.14, so use the container build instead of assuming its interpreter matches Lambda. AWS CLI, SAM CLI and Docker must be installed before the cloud steps.
+Use Node 22.6+ for the history tests. The Lambda runtime is Python 3.13. The Makefile builder copies the Python application and installs wheels targeted to Linux x86_64 and Python 3.13. This build does not require Docker or a matching local Python interpreter. AWS CLI and SAM CLI are required for deployment. Docker or Finch is still required for `sam local` container emulation; local artifact tests do not prove execution in the Lambda runtime.
 
 To inspect the exact static output with the same local engine:
 
@@ -53,13 +53,28 @@ sam local start-api --port 8000
 
 Then run the regular Next.js frontend at port 3000. Its proxy calls the SAM `/simulate` endpoint. Stop the ordinary Python server first if it occupies port 8000. Record successful SAM invocation output as evidence; template validation alone is not evidence of Lambda execution.
 
-## Deploy only after approval
+## Account access
 
-Confirm the account, region, available credits, and acceptable spending first. Throttles and AWS Budgets alerts do not guarantee a hard spending limit. This is a public demo API, with no sign-in and no sensitive customer data. Do not enable paid AI explanations casually.
+Deployment has been authorized for the demo, with Bedrock disabled. Mumbai (`ap-south-1`) is the selected region. Throttles and AWS Budgets alerts do not guarantee a hard spending limit. This is a public demo API, with no sign-in and no sensitive customer data.
+
+The account owner has selected the AWS Free plan. Do not upgrade the plan or activate paid-only services as part of deployment. Verify the account's actual plan, credits and service availability after registration. AWS advertises $100 in initial credits for eligible new customers and up to $100 more through qualifying activities; $200 is not an automatic starting balance. Payment verification is still part of registration.
+
+AWS CLI v2.32+ supports browser login with temporary credentials:
 
 ```sh
-aws sts get-caller-identity
-sam deploy --guided --region us-east-1
+aws login --profile prism --region ap-south-1
+aws sts get-caller-identity --profile prism --region ap-south-1
+```
+
+On September 19, browser login and STS succeeded. CloudFormation `ListStacks` returned `OptInRequired`: the access key needs a subscription for the service. Opening S3 redirected to account setup; continuing registration showed Billing Information, step 3 of 5. The account owner must finish payment verification and any remaining AWS activation steps. Builder Center student verification is separate. No deployment resources were created during this attempt.
+
+The downloaded, signature-checked CLI is temporarily available at `/tmp/prism-awscli-expanded/aws-cli.pkg/Payload/aws-cli/aws`; SAM is at `/tmp/prism-readiness-venv/bin/sam`. These temporary paths may disappear after a restart. Credentials stay in the standard AWS profile outside the repository.
+
+## Deploy after account activation
+
+```sh
+aws cloudformation list-stacks --profile prism --region ap-south-1
+sam deploy --guided --template-file .aws-sam/build/template.yaml --profile prism --region ap-south-1
 ```
 
 Use stack name `prism-demo`. Keep change-set confirmation enabled, review the listed resources and allow the required IAM role creation. Keep `EnableBedrock=false`; leave the unused model parameters at their defaults. Deployment must use the generated `.aws-sam/build/template.yaml`, not an unbuilt backend directory.
@@ -67,15 +82,15 @@ Use stack name `prism-demo`. Keep change-set confirmation enabled, review the li
 After the stack completes:
 
 ```sh
-aws cloudformation describe-stacks --stack-name prism-demo --region us-east-1 --query 'Stacks[0].Outputs' --output table
+aws cloudformation describe-stacks --stack-name prism-demo --profile prism --region ap-south-1 --query 'Stacks[0].Outputs' --output table
 ```
 
 Copy `WebsiteBucketName`, `DistributionId` and `WebsiteUrl` from those outputs. Replace the placeholder values below with those exact outputs:
 
 ```sh
-aws s3 sync frontend/out/ s3://BUCKET_FROM_OUTPUT/ --region us-east-1 --cache-control 'public,max-age=300'
-aws s3 cp frontend/out/_next/static/ s3://BUCKET_FROM_OUTPUT/_next/static/ --recursive --region us-east-1 --cache-control 'public,max-age=31536000,immutable'
-aws cloudfront create-invalidation --distribution-id DISTRIBUTION_FROM_OUTPUT --paths '/*'
+aws s3 sync frontend/out/ s3://BUCKET_FROM_OUTPUT/ --profile prism --region ap-south-1 --cache-control 'public,max-age=300'
+aws s3 cp frontend/out/_next/static/ s3://BUCKET_FROM_OUTPUT/_next/static/ --recursive --profile prism --region ap-south-1 --cache-control 'public,max-age=31536000,immutable'
+aws cloudfront create-invalidation --profile prism --distribution-id DISTRIBUTION_FROM_OUTPUT --paths '/*'
 python3 scripts/smoke.py --base-url https://DOMAIN_FROM_OUTPUT
 ```
 

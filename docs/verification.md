@@ -1,5 +1,15 @@
 # Local verification
 
+## September 19 deployment preparation
+
+- Re-ran eight backend tests and four archive/history tests successfully.
+- Rebuilt the static frontend successfully, including TypeScript checks.
+- Added a SAM Makefile builder targeting Linux x86_64 Python 3.13 wheels. `sam build` and `sam validate --lint` both passed without Docker.
+- Re-ran the eight backend tests with imports resolved from `.aws-sam/build/SimulateFunction`; all passed on the local interpreter. Lambda runtime execution remains unverified.
+- Authenticated the AWS CLI using browser sign-in and verified identity through STS. The selected deployment region is Mumbai, `ap-south-1`.
+- CloudFormation `ListStacks` failed with `OptInRequired`. The AWS console redirected S3 access to account setup; registration is at Billing Information, step 3 of 5. The owner must complete payment verification and remaining activation steps.
+- No AWS deployment resources were created. Public URL verification, Lambda invocation evidence and the final demo recording remain pending.
+
 Verified on September 18, 2026.
 
 ## September 19 readiness audit

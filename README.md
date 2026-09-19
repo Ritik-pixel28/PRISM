@@ -60,7 +60,7 @@ Failure impact uses reverse dependency reachability. Degraded means potentially 
 
 Budget simulation preserves non-compute services and retains the highest-capacity existing compute instances it can afford. Costs are illustrative monthly assumptions, not AWS prices. The UI marks reports from earlier inputs as previous runs. The latest 30 runs are stored in this browser using localStorage. Failed or unavailable storage falls back to session memory. Saved runs retain their scenario, assumptions and evidence.
 
-## AWS integration, intentionally not deployed
+## AWS integration, awaiting account activation
 
 For the September 19 mentor review, see [mentor readiness](docs/mentor-readiness.md) and the [AWS deployment runbook](docs/aws-deployment.md). The prepared target is S3 + CloudFront for the static interface and API Gateway + Lambda for simulation. `npm --prefix frontend run build:static` generates the deployable frontend without changing the local development API route. No cloud resources have been deployed.
 
@@ -68,7 +68,7 @@ For the September 19 mentor review, see [mentor readiness](docs/mentor-readiness
 
 For a later AWS integration, configure `PRISM_API_URL` on the Next.js server to the deployed `/simulate` endpoint. To enable explanations, install `backend/requirements.txt`, configure AWS credentials outside the repository, set `PRISM_ENABLE_BEDROCK=true` and `BEDROCK_MODEL_ID` to an accessible model. The SAM template takes the matching allowed model ARN. Cross-region inference profiles may require additional IAM resources and must be reviewed before use.
 
-SAM template validation and the static frontend build have been verified. No model access, live AWS invocation, SAM deployment or cloud endpoint has been verified. SAM container build is blocked until Docker or Finch is installed and running. Do not present the local demo as proof of deployed AWS usage. The API is an unauthenticated demo with prepared throttling, not a private production service.
+SAM template validation, the static frontend build and the Lambda artifact build have been verified. The Makefile builder installs Linux-compatible Python 3.13 wheels without Docker; Docker or Finch is still needed for SAM local container emulation. Browser authentication and STS succeeded, but deployment is blocked by incomplete AWS account registration at payment verification. No model access, live Lambda invocation, SAM deployment or cloud endpoint has been verified. Do not present the local demo as proof of deployed AWS usage. The API is an unauthenticated demo with prepared throttling, not a private production service.
 
 ## Project structure
 

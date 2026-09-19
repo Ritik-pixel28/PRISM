@@ -2,6 +2,8 @@
 
 See how your infrastructure behaves before production does.
 
+**[Open the live AWS demo](https://k965o7ronh.execute-api.ap-south-1.amazonaws.com)** · Deployed in Mumbai using API Gateway and Lambda. See [deployment evidence and update commands](docs/live-deployment.md).
+
 PRISM is a local-first architectural decision lab with a Python simulation engine, an interactive Next.js topology, and optional Amazon Bedrock explanations. It models assumptions; it does not scan or modify production infrastructure.
 
 ## Run locally
@@ -60,15 +62,15 @@ Failure impact uses reverse dependency reachability. Degraded means potentially 
 
 Budget simulation preserves non-compute services and retains the highest-capacity existing compute instances it can afford. Costs are illustrative monthly assumptions, not AWS prices. The UI marks reports from earlier inputs as previous runs. The latest 30 runs are stored in this browser using localStorage. Failed or unavailable storage falls back to session memory. Saved runs retain their scenario, assumptions and evidence.
 
-## AWS integration, awaiting account activation
+## AWS integration
 
-For the September 19 mentor review, see [mentor readiness](docs/mentor-readiness.md) and the [AWS deployment runbook](docs/aws-deployment.md). The prepared target is S3 + CloudFront for the static interface and API Gateway + Lambda for simulation. `npm --prefix frontend run build:static` generates the deployable frontend without changing the local development API route. No cloud resources have been deployed.
+The live `prism-live` stack uses API Gateway HTTP API and Python Lambda to serve the static interface and simulations over one HTTPS origin. CloudWatch records execution logs. `infrastructure/demo.yaml` defines this deployment. `npm --prefix frontend run build:static` generates the deployable frontend without changing the local development API route. See [live deployment](docs/live-deployment.md) for verification and update commands, and [mentor readiness](docs/mentor-readiness.md) for the presentation.
 
-`infrastructure/template.yaml` packages the same Python engine into Lambda behind API Gateway. Bedrock is disabled by default. DynamoDB and S3 are deliberately not required: the current MVP stores session history locally and exports decisions in the browser.
+`infrastructure/template.yaml` preserves the alternative S3/CloudFront hosting architecture. Its deployment was rolled back because AWS requires additional account verification for CloudFront. Bedrock is disabled in the live demo. Session history and decision exports remain in the browser; no database is provisioned.
 
 For a later AWS integration, configure `PRISM_API_URL` on the Next.js server to the deployed `/simulate` endpoint. To enable explanations, install `backend/requirements.txt`, configure AWS credentials outside the repository, set `PRISM_ENABLE_BEDROCK=true` and `BEDROCK_MODEL_ID` to an accessible model. The SAM template takes the matching allowed model ARN. Cross-region inference profiles may require additional IAM resources and must be reviewed before use.
 
-SAM template validation, the static frontend build and the Lambda artifact build have been verified. The Makefile builder installs Linux-compatible Python 3.13 wheels without Docker; Docker or Finch is still needed for SAM local container emulation. Browser authentication and STS succeeded, but deployment is blocked by incomplete AWS account registration at payment verification. No model access, live Lambda invocation, SAM deployment or cloud endpoint has been verified. Do not present the local demo as proof of deployed AWS usage. The API is an unauthenticated demo with prepared throttling, not a private production service.
+SAM builds, template validation, public endpoint tests and real Lambda execution have been verified. The Makefile builder installs Linux-compatible Python 3.13 wheels without Docker; Docker or Finch is still needed for SAM local container emulation. Bedrock model access and promotional credit balances remain unverified. The API is an unauthenticated demo with throttling, not a private production service.
 
 ## Project structure
 

@@ -1,5 +1,7 @@
 # Mentor briefing — September 19
 
+Live demo: https://k965o7ronh.execute-api.ap-south-1.amazonaws.com. The `prism-live` stack is deployed and tested in Mumbai. See [deployment evidence](live-deployment.md).
+
 ## Positioning
 
 PRISM helps student teams reason about a small web application's capacity, dependencies and budget before changing infrastructure. Start with a campus event registration service: what happens when registrations jump tenfold, the shared database fails, or the team cuts its budget?
@@ -23,7 +25,7 @@ Aim for 2:45, leaving margin below the limit.
 | 0:55–1:20 | Architecture, proposed state, target RDS | Trace four potentially impacted upstream services. This is dependency reachability, not a measured outage. |
 | 1:20–1:45 | Budget $380; change one assumption | Demonstrate a real tradeoff and how inputs change the calculation. Costs are assumptions, not an AWS quote. |
 | 1:45–2:10 | Archive comparison and decision record | Preserve the evidence behind a decision. |
-| 2:10–2:30 | Actual AWS execution evidence, if completed | Show the working cloud URL, Lambda/API Gateway and request logs. Otherwise show the verified SAM workflow and describe local status. |
+| 2:10–2:30 | Actual AWS execution evidence | Show the working cloud URL, `prism-live` Lambda/API Gateway stack and CloudWatch request logs. |
 | 2:30–2:45 | Your learning and limitation | Explain what you learned about dependency direction, assumptions, static delivery and serverless execution. |
 
 Do not claim AWS deployment, live monitoring, real fault injection or Bedrock usage unless the recording demonstrates them.
@@ -36,16 +38,17 @@ Do not claim AWS deployment, live monitoring, real fault injection or Bedrock us
 
 **Does this prove resilience?** No. It highlights modeled risk. It omits failover, database bottlenecks, network limits, queues and scaling delays. Use load testing and recovery exercises to validate real systems.
 
-**Why AWS?** The proposed hosting runs the actual calculation in Lambda, routes through API Gateway and delivers the interface using S3/CloudFront. The same handler can run locally for reproducibility.
+**Why AWS?** The live demo runs the calculations and serves the exported interface in Lambda through API Gateway HTTP API. CloudWatch provides execution evidence. The same engine runs locally for reproducibility. CloudFront required additional account verification, so the demo uses this smaller hosting design; the S3/CloudFront template remains available for later.
 
 **What did you build and understand yourself?** Describe the model and tradeoffs in your own words. Disclose Codex and any other AI tools used. Do not describe AI-assisted code as unaided work.
 
 ## Remaining gates
 
-- [ ] Confirm student verification/check-in and submission requirements with the organizer.
+- [x] Student verification confirmed in AWS Builder Center.
+- [ ] Confirm event check-in and submission requirements with the organizer.
 - [ ] Confirm the final deadline time; the schedule did not specify it when checked.
 - [ ] Review the project with at least two peers; record their actual feedback, not invented impact metrics.
-- [ ] Complete and verify AWS deployment for Ship It, or demonstrate SAM Local for the local track.
+- [x] Complete and verify AWS deployment for Ship It.
 - [ ] Record and upload the video, verify its link signed out, and submit the writeup and repository.
 - [ ] Confirm downloaded decision records open in a regular browser.
 
@@ -55,6 +58,6 @@ The [rules](https://www.wemakedevs.org/aws/first-commit/rules) require new event
 
 PRISM is an infrastructure decision lab for students and small teams. It asks three practical questions: how much compute a traffic surge requires, which services potentially depend on a failed component, and what capacity remains under a budget. A Python engine returns deterministic calculations and a visible proof; a Next.js/Three.js interface lets users explore the architecture, compare experiments and export a decision record.
 
-AWS status: replace this paragraph with verified deployment or SAM Local evidence before submission. Planned deployment is private S3 and CloudFront for delivery, API Gateway and Lambda for computation, and CloudWatch for execution evidence. Optional Bedrock explanations remain separate from the arithmetic. Included inputs are sample assumptions, and the model does not claim to predict real production reliability.
+AWS status: PRISM is deployed in Mumbai at https://k965o7ronh.execute-api.ap-south-1.amazonaws.com using API Gateway HTTP API, Python Lambda and CloudWatch. The Lambda serves the interface and executes deterministic simulations. Five public-endpoint scenarios and malformed-request handling were verified, alongside a browser-driven simulation and CloudWatch invocation records. Bedrock is disabled in this deployment. Included inputs are sample assumptions, and the model does not claim to predict real production reliability.
 
 AI assistance: OpenAI Codex was used for implementation, debugging and documentation. Third-party libraries and procedural visual design credits are in the repository. Add any other tools actually used. Learning and user feedback: add your own specific observations after the mentor session.

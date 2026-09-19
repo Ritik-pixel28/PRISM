@@ -1,5 +1,11 @@
 # Local verification
 
+## September 19 live AWS verification
+
+The `prism-live` stack reached `CREATE_COMPLETE` in Mumbai. Its public URL is https://k965o7ronh.execute-api.ap-south-1.amazonaws.com. Five live simulation cases, malformed JSON handling and the frontend passed the HTTP smoke test. Chrome loaded the 3D interface, completed a 10x simulation and displayed the resulting architecture; its error log was empty. CloudWatch confirmed Lambda invocations. The backend suite now contains twelve tests, including binary asset serving and path traversal prevention. See [live deployment](live-deployment.md) for full evidence, architecture, account limitations and update commands.
+
+The CloudFront attempt rolled back after an account-verification restriction. This was resolved for the demo by using Lambda/HTTP API hosting, without changing the simulation engine or upgrading the account plan. Earlier account-registration blockers below are historical.
+
 ## September 19 deployment preparation
 
 - Re-ran eight backend tests and four archive/history tests successfully.

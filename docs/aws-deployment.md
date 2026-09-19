@@ -1,6 +1,6 @@
 # PRISM AWS deployment runbook
 
-Prepared September 19, 2026. No AWS resources have been created by this runbook.
+Updated September 19, 2026. **The live deployment now uses API Gateway and Lambda: see [live deployment](live-deployment.md).** This document preserves the original S3/CloudFront design. Its attempted deployment rolled back because AWS requires additional account verification to create CloudFront resources.
 
 ## Target architecture
 
@@ -104,4 +104,4 @@ First verify model access in the intended region. Deploy with an accessible `Bed
 
 When the demo is no longer needed, inspect costs and remove its resources deliberately. The website bucket is retained on stack deletion to avoid accidental data loss, so deleting the stack alone will not remove that bucket or its objects. Check for retained logs and other resources. Keep the public URL available for the judging period before cleanup.
 
-AWS deployment, real account costs, permissions, regional availability and optional Bedrock invocation remain unverified until the authorized cloud run. A local preview is not a deployed submission.
+The alternative Lambda/HTTP API deployment has been verified; this CloudFront design remains blocked by account verification. Actual account costs, promotional credits and optional Bedrock invocation remain unverified. A local preview is not a deployed submission.
